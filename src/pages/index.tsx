@@ -28,6 +28,7 @@ export default function IndexPage() {
   const [nodeModalVisible, setNodeModalVisible] = useState(false)
   const [statusVisible, setStatusVisible] = useState(false)
   const [resultData, setResultData] = useState()
+  const [loading, setLoading] = useState(false)
 
 
   const curRecord = useRef<null | tableType>()
@@ -38,13 +39,10 @@ export default function IndexPage() {
     wrapperCol: { span: 14 },
   }
   const handleConnect = (record) => {
-    console.log(record);
     setConncetModalVisible(true)
     curRecord.current = record
   }
   const handleStop = (record) => {
-    console.log(record);
-
     setStopModalVisible(true)
     curRecord.current = record
   }
@@ -61,13 +59,16 @@ export default function IndexPage() {
   }
 
   const handleOk = (type) => {
-    console.log(type);
     const connectFun = () => {
-      console.log(connectForm.getFieldsValue());
       const params = {
         nodeid: curRecord.current?.id
       }
-      nodeConnect({ ...params, ...connectForm.getFieldsValue() }).then(res => console.log(res)
+      nodeConnect({ ...params, ...connectForm.getFieldsValue() }).then(res => {
+        if (res?.data?.msg == 'OK') {
+          message.success('成功')
+          handleCancel()
+        }
+      }
       )
     }
 
@@ -76,7 +77,12 @@ export default function IndexPage() {
       const params = {
         nodeid: curRecord.current?.id
       }
-      nodeStop({ ...params, ...stopForm.getFieldsValue() }).then(res => console.log(res))
+      nodeStop({ ...params, ...stopForm.getFieldsValue() }).then(res => {
+        if (res?.data?.msg == 'OK') {
+          message.success('成功')
+          handleCancel()
+        }
+      })
     }
 
     switch (type) {
@@ -107,12 +113,10 @@ export default function IndexPage() {
 
 
   const handleScript = () => {
-    console.log('当前输入的值', curJSONInput.current);
     syncScript(curJSONInput.current).then(res => setResultData(res))
   }
 
   const handleJSONChange = (e) => {
-    console.log(e);
     curJSONInput.current = e.jsObject
   }
 
@@ -123,7 +127,10 @@ export default function IndexPage() {
   }
 
   const onFinish = (v) => {
-    nodesList(v).then(res => setAdjacentDataSource(res?.data?.Nodes))
+    setLoading(true)
+    nodesList(v).then(res => setDataSource(res?.data?.Nodes)).finally(() => {
+      setLoading(false)
+    })
   }
   const columns = [
     {
@@ -146,10 +153,10 @@ export default function IndexPage() {
       key: 'action',
       render: (_, record) => (
         <Space size="middle">
-          <a onClick={() => handleConnect(record)}>连接</a>
-          <a onClick={() => handleStop(record)}>断开</a>
-          <a onClick={() => handleNode(record)}>相邻节点</a>
-          <a onClick={() => handleStatus(record)}>状态</a>
+          <a onClick={() => handleConnect(record)} key="connect">连接</a>
+          <a onClick={() => handleStop(record)} key="stop">断开</a>
+          <a onClick={() => handleNode(record)} key="node">相邻节点</a>
+          <a onClick={() => handleStatus(record)} key="stat">状态</a>
         </Space>
       ),
     },
@@ -172,7 +179,6 @@ export default function IndexPage() {
       key: 'Addr',
     }
   ]
-
 
   useEffect(() => {
     nodesList().then(res => setDataSource(res?.data?.Nodes ?? []))
@@ -197,14 +203,14 @@ export default function IndexPage() {
                     <Input placeholder="请输入节点 ID" />
                   </Form.Item>
                   <Form.Item>
-                    <Button type="primary" htmlType="submit">查询</Button>
+                    <Button type="primary" htmlType="submit" loading={loading}>查询</Button>
                   </Form.Item>
                 </Form>
               </div>
             </Card>
             <div className='table-form'>
               <Card>
-                <Table dataSource={dataSource} columns={columns} />
+                <Table dataSource={dataSource} columns={columns} key="data" loading={loading} />
               </Card>
             </div>
           </TabPane>
@@ -213,7 +219,7 @@ export default function IndexPage() {
               <div className='input-wrap'>
                 <p>请输入JSON</p>
                 <JSONInput
-                  id="a_unique_id"
+                  id="a_unique_id_0"
                   locale={locale}
                   height="550px"
                   onChange={(e) => handleJSONChange(e)}
@@ -228,7 +234,7 @@ export default function IndexPage() {
               <div className='result-wrap'>
                 <p>结果展示</p>
                 <JSONInput
-                  id="a_unique_id"
+                  id="a_unique_id_1"
                   locale={locale}
                   placeholder={resultData}
                   height="550px"
@@ -267,11 +273,17 @@ export default function IndexPage() {
       </Modal>
 
       <Modal title="相邻节点" width={'70%'} footer={null} visible={nodeModalVisible} onCancel={handleCancel}>
-        <Table dataSource={adjacentDataSource} columns={adjacentColumns} />
+        <Table dataSource={adjacentDataSource} columns={adjacentColumns} key="adjacent" />
       </Modal>
 
       <Drawer title="状态信息" placement="right" width={'40%'} onClose={onClose} visible={statusVisible}>
-        {JSON.stringify(nodeStatData)}
+        <JSONInput
+          id="a_unique_id_2"
+          locale={locale}
+          placeholder={nodeStatData}
+          width='100%'
+          height='100%'
+        />
       </Drawer>
     </>
   );
